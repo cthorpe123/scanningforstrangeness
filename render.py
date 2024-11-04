@@ -54,7 +54,7 @@ def parse_data(data):
 
         print(f"\033[0;36m-- Expected length: {exp_len}, Actual length: {act_len}\033[0m")
         if act_len < exp_len:
-            raise ValueError("\033[0;31m-- Inconsistent hit data length\033[0m")
+            raise ValueError("\033[0;31m-- Inconsistent hit data length\033[0m") 
 
         hit_x = np.array(hit_data[0::(3 + n_flags)], dtype=float)
         hit_z = np.array(hit_data[1::(3 + n_flags)], dtype=float)
