@@ -32,3 +32,5 @@
 *.app
 
 plots/
+__pycache__/
+
