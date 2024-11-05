@@ -1,56 +1,52 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-import torch 
+import matplotlib.colors as colors
+import torch
+import random
+import time
+from matplotlib.colors import ListedColormap, BoundaryNorm
 
-from matplotlib.colors import ListedColormap, BoundaryNorm, LogNorm
 from lib.dataset import ImageDataLoader
 from lib.config import ConfigLoader
 
-def visualise_input(input_histogram):
-    fig, ax = plt.subplots(figsize=(8, 6))
-    img = ax.imshow(input_histogram, origin="lower", cmap='jet', norm=LogNorm(vmin=1e3), aspect='equal', interpolation='none')
-    cbar = fig.colorbar(img, ax=ax)
-    cbar.set_label("Charge")
-
-    ax.set_xticks([0, 511])
-    ax.set_yticks([511])
-    ax.tick_params(axis="y", which='major', direction="out", length=10, width=2.5, pad=10, labelsize=50)
-    ax.tick_params(axis="y", which='minor', direction="out", length=10, width=1.0, labelleft=False, labelsize=50)
-    ax.tick_params(axis="x", which='major', direction="out", length=10, width=2.5, pad=10, bottom=True, top=False, labelsize=50)
-    ax.tick_params(axis="x", which='minor', direction="out", length=10, width=2.0, bottom=True, top=False, labelsize=50)
-    ax.set_xlim(0, 511)
-    ax.set_ylim(0, 511)
-    ax.set_xlabel('Wire Coord', size=55, labelpad=1.0)
-    ax.set_ylabel('Drift Time', size=55, labelpad=1.0)
+def visualise_input(input_histogram, height, width):
+    fig, ax = plt.subplots(figsize=(12, 12), dpi=300)
+    img = ax.imshow(input_histogram, origin="lower", cmap='jet', norm=colors.PowerNorm(gamma=0.35, vmin=1e3, vmax=input_histogram.max()), aspect='equal', interpolation='none')
+    #cbar = fig.colorbar(img, ax=ax, shrink=0.8)
+    #cbar.set_ticks([0., np.max(input_histogram)])
+    #cbar.ax.set_yticklabels(['Low charge', 'High charge'], fontsize=12)
     
+    ax.set_xticks([0, width - 1])
+    ax.set_yticks([0, height - 1])
+    ax.tick_params(axis="both", direction="out", length=6, width=1.5, labelsize=18)
+    ax.set_xlim(0, width - 1)
+    ax.set_ylim(0, height - 1)
+    ax.set_xlabel('Wire Coord', fontsize=20)
+    ax.set_ylabel('Drift Time', fontsize=20)
     plt.tight_layout()
     return fig
 
-
-def visualise_truth(target_histogram):
-    cmap = ListedColormap(['white', 'red', 'blue', 'cyan', 'green', 'yellow', 'purple'])
-    bounds = np.arange(0, target_histogram.max() + 2)
+def visualise_truth(target_histogram, height, width):
+    cmap = ListedColormap(['#ffffff', '#0000ff', '#ff0000'])  # white, blue, red
+    bounds = [-0.5, 0.5, 1.5, 2.5]
     norm = BoundaryNorm(bounds, cmap.N)
     
-    fig, ax = plt.subplots(figsize=(8, 6))
-    masked_target_histogram = np.ma.masked_invalid(target_histogram)  
+    fig, ax = plt.subplots(figsize=(12, 12), dpi=300)
+    masked_target_histogram = np.ma.masked_invalid(target_histogram)
+    
     img = ax.imshow(masked_target_histogram, cmap=cmap, norm=norm, aspect='equal', interpolation='none')
     
-    ax.set_xticks([0, 511])
-    ax.set_yticks([0, 511])
-    ax.tick_params(axis="y", which='major', direction="out", length=10, width=2.5, pad=10, labelsize=50)
-    ax.tick_params(axis="y", which='minor', direction="out", length=10, width=1.0, labelleft=False, labelsize=50)
-    ax.tick_params(axis="x", which='major', direction="out", length=10, width=2.5, pad=10, bottom=True, top=False, labelsize=50)
-    ax.tick_params(axis="x", which='minor', direction="out", length=10, width=2.0, bottom=True, top=False, labelsize=50)
-    ax.set_xlim(0, 511)
-    ax.set_ylim(0, 511)
-    ax.set_xlabel('Wire Number', size=55, labelpad=1.0)
-    ax.set_ylabel('Drift Time', size=55, labelpad=1.0)
+    ax.set_xticks([0, width - 1])
+    ax.set_yticks([0, height - 1])
+    ax.tick_params(axis="both", direction="out", length=6, width=1.5, labelsize=18)
+    ax.set_xlim(0, width - 1)
+    ax.set_ylim(0, height - 1)
+    ax.set_xlabel('Wire Coord', fontsize=20)
+    ax.set_ylabel('Drift Time', fontsize=20)
     
     plt.tight_layout()
     return fig
-
 
 def visualise(config_file):
     config = ConfigLoader(config_file)
@@ -65,28 +61,40 @@ def visualise(config_file):
         device=device
     )
 
-    os.makedirs(os.path.join(config.output_dir, "input"), exist_ok=True)
-    os.makedirs(os.path.join(config.output_dir, "target"), exist_ok=True)
+    height, width = config.height, config.width
+    plot_dir = os.path.join(os.getcwd(), "plots")
+    os.makedirs(plot_dir, exist_ok=True)
 
-    for i, (input_img, target_img) in enumerate(data_loader.train_dl):
-        input_fig = visualise_input(input_img[0].cpu().numpy())
-        input_path = os.path.join(config.output_dir, "input", f"input_event_{i}.png")
-        input_fig.savefig(input_path, dpi=300)
-        plt.close(input_fig)
+    input_img, target_img = next(iter(data_loader.train_dl))
 
-        target_fig = visualise_truth(target_img[0].cpu().numpy())
-        target_path = os.path.join(config.output_dir, "target", f"target_event_{i}.png")
-        target_fig.savefig(target_path, dpi=300)
-        plt.close(target_fig)
+    input_img = input_img.squeeze().cpu().numpy()
+    target_img = target_img.squeeze().cpu().numpy()
 
-        break
+    unique_values, counts = np.unique(target_img, return_counts=True)
+    print("Unique Values and Counts in Truth Histogram:")
+    for value, count in zip(unique_values, counts):
+        print(f"Value {value}: {count} occurrences")
 
+    timestamp = int(time.time())
+
+    input_fig = visualise_input(input_img, height, width)
+    input_path = os.path.join(plot_dir, f"input_event_{timestamp}.png")
+    input_fig.savefig(input_path, dpi=300)
+    plt.close(input_fig)
+
+    target_fig = visualise_truth(target_img, height, width)
+    target_path = os.path.join(plot_dir, f"target_event_{timestamp}.png")
+    target_fig.savefig(target_path, dpi=300)
+    plt.close(target_fig)
+
+    print(f"Saved input histogram to {input_path}")
+    print(f"Saved target histogram to {target_path}")
 
 if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, required=True)
+    parser.add_argument('-c', '--config', type=str, required=True)
     args = parser.parse_args()
     
     visualise(args.config)
