@@ -1,3 +1,5 @@
+import torch.nn as nn
+
 import os
 import torch
 import numpy as np
@@ -13,7 +15,8 @@ from lib.config import ConfigLoader
 
 def create_model(n_classes, weights, device):
     model = UNet(1, n_classes=n_classes, depth=4, n_filters=16)
-    loss_fn = FocalLoss(alpha=torch.as_tensor(weights, device=device, dtype=torch.float), gamma=2.0)
+    #loss_fn = FocalLoss(alpha=weights, gamma=2.0) 
+    loss_fn = nn.CrossEntropyLoss(weight=weights)  
     optim = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-5)
     return model, loss_fn, optim
 
@@ -26,7 +29,7 @@ def make_train_step(model, loss_fn, optimizer):
     def train_step(x, y):
         model.train()
         y_prediction = model(x)
-        loss = loss_fn(y_prediction, y)
+        loss = loss_fn(y_prediction, y.long())
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -41,15 +44,27 @@ def make_test_step(model, loss_fn):
             for x_batch, y_batch in loader:
                 x_batch, y_batch = x_batch.to(device), y_batch.to(device)
                 y_prediction = model(x_batch)
-                loss = loss_fn(y_prediction, y_batch)
+                loss = loss_fn(y_prediction, y_batch.long())
                 total_loss += loss.item()
         avg_loss = total_loss / len(loader)
         return avg_loss
     return test_step
 
+def calculate_or_load_class_counts(data_loader, num_classes, cache_path="class_counts.npy"):
+    if os.path.exists(cache_path):
+        print("\033[94m-- Loading cached class counts\033[0m")
+        return np.load(cache_path)
+    else:
+        print("\033[94m-- Counting classes from scratch\033[0m")
+        class_counts = data_loader.count_classes(num_classes)
+        np.save(cache_path, class_counts)
+        return class_counts
+
 def train(config):
+    print("\033[94m-- Initialising training configuration\033[0m")
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     set_seed(config.seed)
+    print(f"\033[94m-- Using device: {device}\033[0m")
 
     batch_size = config.batch_size
     train_pct = config.train_pct
@@ -64,6 +79,7 @@ def train(config):
 
     model_name = config.model_name
 
+    print("\033[94m-- Loading data\033[0m")
     data_loader = ImageDataLoader(
         input_dir=input_dir,
         target_dir=target_dir,
@@ -73,9 +89,11 @@ def train(config):
         device=device
     )
 
-    train_stats = data_loader.count_classes(n_classes)
+    print("\033[94m-- Calculating or loading class weights\033[0m")
+    train_stats = calculate_or_load_class_counts(data_loader, n_classes)
     class_weights = get_class_weights(torch.tensor(train_stats, dtype=torch.float32).to(device))
 
+    print("\033[94m-- Initialising model, loss function, and optimiser\033[0m")
     model, loss_fn, optim = create_model(n_classes, class_weights, device)
     model = model.to(device)
 
@@ -92,9 +110,12 @@ def train(config):
     output_path = os.path.join(output_dir, f"{model_name}_metrics.root")
     output = uproot.recreate(output_path)
 
+    print("\033[94m-- Starting training loop\033[0m")
     step = 0
     for epoch in range(n_epochs):
+        torch.cuda.empty_cache() 
         model.train()
+        print(f"\033[96m-- Epoch {epoch+1}/{n_epochs} started\033[0m")
         for x, y in data_loader.train_dl:
             x, y = x.to(device), y.to(device)
             train_loss = train_step(x, y)
@@ -115,12 +136,14 @@ def train(config):
             
             step += 1
 
+    print("\033[94m-- Saving metrics to output file\033[0m")
     output["metrics"] = metrics_tree
+    print("\033[94m-- Training complete\033[0m")
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, required=True)
+    parser.add_argument('-c', '--config', type=str, required=True)
     args = parser.parse_args()
     
     config = ConfigLoader(args.config) 

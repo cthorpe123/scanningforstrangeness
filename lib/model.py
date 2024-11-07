@@ -1,5 +1,6 @@
 import torch.nn as nn
 import torch
+import torch.nn.functional as F
 
 def maxpool():
     return nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
@@ -101,7 +102,7 @@ class UNet(nn.Module):
         self.us_dropout_2 = dropout(drop_prob)
         self.us_dropout_1 = dropout(drop_prob)
 
-        self.output = nn.Sequential(nn.Conv2d(n_filters, n_classes, 1), Sigmoid(y_range))
+        self.output = nn.Conv2d(n_filters, n_classes, kernel_size=1)
 
     def forward(self, x):
         res = x
@@ -144,6 +145,7 @@ class UNet(nn.Module):
         res = self.us_dropout_1(res)
         res = self.us_conv_1(res)
 
+        #output = F.softmax(self.output(res), dim=1)
         output = self.output(res)
 
         return output

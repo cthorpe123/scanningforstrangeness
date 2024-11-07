@@ -18,3 +18,4 @@ echo -e "${CYAN}-- Available aliases:${NC}"
 alias | grep 'cd'
 
 conda activate pythondl
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True

@@ -29,23 +29,15 @@ class ImageDataLoader():
         self.valid_dl = DataLoader(self.valid_ds, batch_size=batch_size, shuffle=False, drop_last=True, num_workers=0)
 
     def count_classes(self, num_classes):
-        count = np.zeros(num_classes)
-        
-        for i, batch in enumerate(self.train_dl):
+        count = torch.zeros(num_classes, dtype=torch.long)
+
+        for i, batch in tqdm(enumerate(self.train_dl), desc="Counting classes", total=len(self.train_dl)):
             _, truth = batch
+            truth_flat = truth.view(-1)
+            counts = torch.bincount(truth_flat, minlength=num_classes)
+            count += counts
 
-            unique = torch.unique(truth)
-            counts = torch.stack([(truth == x_u).sum() for x_u in unique])
-
-            unique = [u.item() for u in unique]
-            counts = [c.item() for c in counts]
-            this_dict = dict(zip(unique, counts))
-
-            for key in this_dict:
-                if 0 <= key < num_classes: 
-                    count[key] += this_dict[key]
-
-        return count
+        return count.cpu().numpy()
 
 
 class ImageDataset(Dataset):
@@ -68,8 +60,8 @@ class ImageDataset(Dataset):
         with open(target_name, 'rb') as file:
             target = np.load(file)['arr_0']
 
-        input = torch.as_tensor(np.expand_dims(input, axis=0), dtype=torch.float).to(self.device)
-        target = torch.as_tensor(target, dtype=torch.long).to(self.device)
+        input = torch.as_tensor(np.expand_dims(input, axis=0), dtype=torch.float)
+        target = torch.as_tensor(target, dtype=torch.long)
 
         if self.transform:
             should_hflip = torch.rand(1) > 0.5
