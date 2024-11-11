@@ -68,7 +68,7 @@ class Sigmoid(nn.Module):
             return torch.sigmoid(x)
 
 class UNet(nn.Module):
-    def __init__(self, in_dim, n_classes, depth=2, n_filters=4, drop_prob=0.1, y_range = None):
+    def __init__(self, in_dim, n_classes, depth=4, n_filters=16, drop_prob=0.1, y_range = None):
         super(UNet, self).__init__()
         self.ds_conv_1 = ConvBlock(in_dim, n_filters)
         self.ds_conv_2 = ConvBlock(n_filters, 2 * n_filters)
@@ -108,42 +108,42 @@ class UNet(nn.Module):
         res = x
 
         res = self.ds_conv_1(res); conv_stack_1 = res.clone()
-        res = self.ds_maxpool_1(res)
-        res = self.ds_dropout_1(res)
+        #res = self.ds_maxpool_1(res)
+        #res = self.ds_dropout_1(res)
 
-        res = self.ds_conv_2(res); conv_stack_2 = res.clone()
-        res = self.ds_maxpool_2(res)
-        res = self.ds_dropout_2(res)
+        # res = self.ds_conv_2(res); conv_stack_2 = res.clone()
+        # res = self.ds_maxpool_2(res)
+        # res = self.ds_dropout_2(res)
 
-        res = self.ds_conv_3(res); conv_stack_3 = res.clone()
-        res = self.ds_maxpool_3(res)
-        res = self.ds_dropout_3(res)
+        # res = self.ds_conv_3(res); conv_stack_3 = res.clone()
+        # res = self.ds_maxpool_3(res)
+        # res = self.ds_dropout_3(res)
 
-        res = self.ds_conv_4(res); conv_stack_4 = res.clone()
-        res = self.ds_maxpool_4(res)
-        res = self.ds_dropout_4(res)
+        # res = self.ds_conv_4(res); conv_stack_4 = res.clone()
+        # res = self.ds_maxpool_4(res)
+        # res = self.ds_dropout_4(res)
 
-        res = self.bridge(res)
+        # res = self.bridge(res)
 
-        res = self.us_tconv_4(res)
-        res = torch.cat([res, conv_stack_4], dim=1)
-        res = self.us_dropout_4(res)
-        res = self.us_conv_4(res)
+        # res = self.us_tconv_4(res)
+        # res = torch.cat([res, conv_stack_4], dim=1)
+        # res = self.us_dropout_4(res)
+        # res = self.us_conv_4(res)
 
-        res = self.us_tconv_3(res)
-        res = torch.cat([res, conv_stack_3], dim=1)
-        res = self.us_dropout_3(res)
-        res = self.us_conv_3(res)
+        # res = self.us_tconv_3(res)
+        # res = torch.cat([res, conv_stack_3], dim=1)
+        # res = self.us_dropout_3(res)
+        # res = self.us_conv_3(res)
 
-        res = self.us_tconv_2(res)
-        res = torch.cat([res, conv_stack_2], dim=1)
-        res = self.us_dropout_2(res)
-        res = self.us_conv_2(res)
+        # res = self.us_tconv_2(res)
+        # res = torch.cat([res, conv_stack_2], dim=1)
+        # res = self.us_dropout_2(res)
+        # res = self.us_conv_2(res)
 
-        res = self.us_tconv_1(res)
-        res = torch.cat([res, conv_stack_1], dim=1)
-        res = self.us_dropout_1(res)
-        res = self.us_conv_1(res)
+        # res = self.us_tconv_1(res)
+        # res = torch.cat([res, conv_stack_1], dim=1)
+        # res = self.us_dropout_1(res)
+        # res = self.us_conv_1(res)
 
         #output = F.softmax(self.output(res), dim=1)
         output = self.output(res)

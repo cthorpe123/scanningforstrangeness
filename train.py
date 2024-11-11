@@ -19,14 +19,19 @@ from lib.config import ConfigLoader
 def create_model(n_classes, weights, device):
     model = UNet(1, n_classes=n_classes, depth=4, n_filters=16)
     #loss_fn = FocalLoss(alpha=weights, gamma=2.0) 
-    loss_fn = nn.CrossEntropyLoss(weight=weights)  
+    loss_fn = nn.CrossEntropyLoss(weight=torch.tensor(weights, dtype=torch.float32, device=device))
     optim = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-5)
     return model, loss_fn, optim
 
 def get_class_weights(stats):
-    stats[stats == 0.] = 1.
-    weights = 1. / stats
-    return weights / weights.sum()
+    if np.any(stats == 0.):
+        idx = np.where(stats == 0.)
+        stats[idx] = 1
+        weights = 1. / stats
+        weights[idx] = 0
+    else:
+        weights = 1. / stats
+    return [weight / sum(weights) for weight in weights]
 
 def calculate_or_load_class_counts(data_loader, num_classes, cache_path="class_counts.npy"):
     if os.path.exists(cache_path):
@@ -40,7 +45,7 @@ def calculate_or_load_class_counts(data_loader, num_classes, cache_path="class_c
 
 def train(config):
     print("\033[94m-- Initialising training configuration\033[0m")
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = 'cpu' #torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     set_seed(config.seed)
     print(f"\033[94m-- Using device: {device}\033[0m")
 
@@ -66,8 +71,8 @@ def train(config):
     )
 
     print("\033[94m-- Calculating or loading class weights\033[0m")
-    train_stats = calculate_or_load_class_counts(data_loader, n_classes)
-    class_weights = get_class_weights(torch.tensor(train_stats, dtype=torch.float32).to(device))
+    train_stats = data_loader.count_classes(n_classes)
+    class_weights = get_class_weights(train_stats)
 
     print("\033[94m-- Initialising model, loss function, and optimiser\033[0m")
     model, loss_fn, optim = create_model(n_classes, class_weights, device)
@@ -87,6 +92,7 @@ def train(config):
 
                 for i, batch in enumerate(data_loader.train_dl):
                     x, y = batch
+                    print(x.sum())
                     x, y = x.to(device), y.to(device)
 
                     if torch.isnan(x).any() or torch.isinf(x).any():
@@ -115,9 +121,6 @@ def train(config):
                                 return
 
                         scaler.scale(loss).backward()
-
-                    loss.backward()
-                    optim.step()
 
                     for name, param in model.named_parameters():
                         if param.grad is not None:

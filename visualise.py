@@ -17,8 +17,8 @@ def visualise_input(input_histogram, height, width):
     ax.tick_params(axis="both", direction="out", length=6, width=1.5, labelsize=18)
     ax.set_xlim(0, width - 1)
     ax.set_ylim(0, height - 1)
-    ax.set_xlabel('Wire Coord', fontsize=20)
-    ax.set_ylabel('Drift Time', fontsize=20)
+    ax.set_xlabel('Drift Time', fontsize=20)
+    ax.set_ylabel('Wire Coord', fontsize=20)
     plt.tight_layout()
     return fig
 
@@ -35,8 +35,8 @@ def visualise_truth(target_histogram, height, width):
     ax.tick_params(axis="both", direction="out", length=6, width=1.5, labelsize=18)
     ax.set_xlim(0, width - 1)
     ax.set_ylim(0, height - 1)
-    ax.set_xlabel('Wire Coord', fontsize=20)
-    ax.set_ylabel('Drift Time', fontsize=20)
+    ax.set_xlabel('Drift Time', fontsize=20)
+    ax.set_ylabel('Wire Coord', fontsize=20)
     plt.tight_layout()
     return fig
 
