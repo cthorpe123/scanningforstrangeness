@@ -68,7 +68,7 @@ class Sigmoid(nn.Module):
             return torch.sigmoid(x)
 
 class UNet(nn.Module):
-    def __init__(self, in_dim, n_classes, depth=4, n_filters=16, drop_prob=0.1, y_range = None):
+    def __init__(self, in_dim, n_classes, depth=2, n_filters=4, drop_prob=0.1, y_range = None):
         super(UNet, self).__init__()
         self.ds_conv_1 = ConvBlock(in_dim, n_filters)
         self.ds_conv_2 = ConvBlock(n_filters, 2 * n_filters)

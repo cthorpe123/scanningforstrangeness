@@ -1,4 +1,7 @@
 import torch.nn as nn
+import time
+from line_profiler import profile
+from torch.cuda.amp import autocast, GradScaler
 
 import os
 import torch
@@ -25,31 +28,6 @@ def get_class_weights(stats):
     weights = 1. / stats
     return weights / weights.sum()
 
-def make_train_step(model, loss_fn, optimizer):
-    def train_step(x, y):
-        model.train()
-        y_prediction = model(x)
-        loss = loss_fn(y_prediction, y.long())
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        return loss.item()
-    return train_step
-
-def make_test_step(model, loss_fn):
-    def test_step(loader, device):
-        model.eval()
-        total_loss = 0
-        with torch.no_grad():
-            for x_batch, y_batch in loader:
-                x_batch, y_batch = x_batch.to(device), y_batch.to(device)
-                y_prediction = model(x_batch)
-                loss = loss_fn(y_prediction, y_batch.long())
-                total_loss += loss.item()
-        avg_loss = total_loss / len(loader)
-        return avg_loss
-    return test_step
-
 def calculate_or_load_class_counts(data_loader, num_classes, cache_path="class_counts.npy"):
     if os.path.exists(cache_path):
         print("\033[94m-- Loading cached class counts\033[0m")
@@ -69,14 +47,12 @@ def train(config):
     batch_size = config.batch_size
     train_pct = config.train_pct
     valid_pct = config.valid_pct
-
     n_classes = config.n_classes
     n_epochs = config.n_epochs
 
     input_dir = config.input_dir
     target_dir = config.target_dir
     output_dir = config.output_dir
-
     model_name = config.model_name
 
     print("\033[94m-- Loading data\033[0m")
@@ -96,48 +72,98 @@ def train(config):
     print("\033[94m-- Initialising model, loss function, and optimiser\033[0m")
     model, loss_fn, optim = create_model(n_classes, class_weights, device)
     model = model.to(device)
-
-    metrics_tree = {
-        "epoch": [],
-        "step": [],
-        "train_loss": [],
-        "valid_loss": []
-    }
-
-    train_step = make_train_step(model, loss_fn, optim)
-    test_step = make_test_step(model, loss_fn)
+    scaler = torch.amp.GradScaler()
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, mode='min', factor=0.1, patience=3)
 
     output_path = os.path.join(output_dir, f"{model_name}_metrics.root")
-    output = uproot.recreate(output_path)
+    with uproot.recreate(output_path) as output:
+        print("\033[94m-- Starting training loop\033[0m")
+        with torch.autograd.set_detect_anomaly(True):
+            for epoch in range(n_epochs):
+                model.train()
+                print(f"\033[96m-- Epoch {epoch+1}/{n_epochs} started\033[0m")
 
-    print("\033[94m-- Starting training loop\033[0m")
-    step = 0
-    for epoch in range(n_epochs):
-        torch.cuda.empty_cache() 
-        model.train()
-        print(f"\033[96m-- Epoch {epoch+1}/{n_epochs} started\033[0m")
-        for x, y in data_loader.train_dl:
-            x, y = x.to(device), y.to(device)
-            train_loss = train_step(x, y)
-            valid_loss = test_step(data_loader.valid_dl, device)
+                batch_train_loss = []
 
-            metrics_tree["epoch"].append(epoch)
-            metrics_tree["step"].append(step)
-            metrics_tree["train_loss"].append(train_loss)
-            metrics_tree["valid_loss"].append(valid_loss)
+                for i, batch in enumerate(data_loader.train_dl):
+                    x, y = batch
+                    x, y = x.to(device), y.to(device)
 
-            model_save_path = os.path.join(output_dir, f"{model_name}_epoch{epoch}_step{step}.pt")
-            torch.save(model.state_dict(), model_save_path)
+                    if torch.isnan(x).any() or torch.isinf(x).any():
+                        print(f"-- NaN or Inf detected in input data at epoch {epoch}, batch {i}")
+                        print(f"x min: {x.min().item()}, x max: {x.max().item()}, x mean: {x.mean().item()}")
+                        return
 
-            print(f"\033[93m-- Epoch [{epoch+1}/{n_epochs}], Step {step}: "
-                  f"-- Train Loss: {train_loss:.4f}, "
-                  f"-- Valid Loss: {valid_loss:.4f}\033[0m")
-            print(f"\033[92m-- Model saved to {model_save_path}\033[0m")
-            
-            step += 1
+                    optim.zero_grad()
 
-    print("\033[94m-- Saving metrics to output file\033[0m")
-    output["metrics"] = metrics_tree
+                    y = y.to(torch.long)
+
+                    with torch.autograd.set_detect_anomaly(True):
+                        with torch.amp.autocast('cuda'):
+                            pred = model(x)
+                            print(pred)
+
+                            if torch.isnan(pred).any() or torch.isinf(pred).any():
+                                print(f"-- NaN or Inf detected in model predictions at epoch {epoch}, batch {i}")
+                                print(f"pred min: {pred.min().item()}, pred max: {pred.max().item()}, pred mean: {pred.mean().item()}")
+                                return
+
+                            loss = loss_fn(pred, y)
+                            if torch.isnan(loss).any() or torch.isinf(loss).any():
+                                print(f"-- NaN or Inf detected in loss at epoch {epoch}, batch {i}")
+                                print(f"loss value: {loss.item()}")
+                                return
+
+                        scaler.scale(loss).backward()
+
+                    loss.backward()
+                    optim.step()
+
+                    for name, param in model.named_parameters():
+                        if param.grad is not None:
+                            if torch.isnan(param.grad).any() or torch.isinf(param.grad).any():
+                                print(f"-- NaN or Inf detected in gradients of {name} at epoch {epoch}, batch {i}")
+                                return
+
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                    scaler.step(optim)
+                    scaler.update()
+
+                    batch_train_loss.append(loss.item())
+                    print(f"\033[96m--- Epoch {epoch+1}, Batch {i+1} - Training Loss: {loss.item()}\033[0m")
+
+                train_loss_mean = np.mean(batch_train_loss)
+                train_loss_std_dev = np.std(batch_train_loss)
+                print(f"Epoch {epoch+1} - Mean Training Loss: {train_loss_mean}, Std Dev: {train_loss_std_dev}")
+
+                model.eval()
+                batch_valid_loss = []
+                with torch.no_grad():
+                    for j, batch in enumerate(data_loader.valid_dl):
+                        x, y = batch
+                        x, y = x.to(device), y.to(device)
+
+                        pred = model(x)
+                        val_loss = loss_fn(pred, y)
+                        batch_valid_loss.append(val_loss.item())
+
+                valid_loss_mean = np.mean(batch_valid_loss)
+                valid_loss_std_dev = np.std(batch_valid_loss)
+                print(f"Epoch {epoch+1} - Mean Validation Loss: {valid_loss_mean}, Std Dev: {valid_loss_std_dev}")
+
+                scheduler.step(valid_loss_mean)
+
+                current_lr = scheduler.get_last_lr()[0]
+                print(f"Epoch {epoch+1} - Current Learning Rate: {current_lr}")
+
+            output["metrics"] = {
+                "train_loss": train_loss,
+                "train_loss_std": train_loss_std,
+                "valid_loss": valid_loss,
+                "valid_loss_std": valid_loss_std,
+                "learning_rate": learning_rates,
+            }   
+
     print("\033[94m-- Training complete\033[0m")
 
 
