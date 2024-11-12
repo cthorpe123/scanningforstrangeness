@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import os
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 from tqdm import tqdm
 import torch.nn.functional as F
 
@@ -25,8 +25,40 @@ class ImageDataLoader():
         self.train_ds = ImageDataset(self.input_dir, self.target_dir, input_files[train_sample], transform, device)
         self.valid_ds = ImageDataset(self.input_dir, self.target_dir, input_files[valid_sample], None, device)
 
-        self.train_dl = DataLoader(self.train_ds, batch_size=batch_size, shuffle=True, drop_last=True, num_workers=0)
-        self.valid_dl = DataLoader(self.valid_ds, batch_size=batch_size, shuffle=False, drop_last=True, num_workers=0)
+        self.valid_signature_ds, self.valid_background_ds = self.split_validation_set()
+
+        event_labels = self.get_event_labels(self.train_ds)
+        signature_weight = 0.9
+        background_weight = 0.1
+        weights = [signature_weight if label == 1 else background_weight for label in event_labels]
+
+        sampler = WeightedRandomSampler(weights, num_samples=len(weights), replacement=True)
+
+        self.train_dl = DataLoader(self.train_ds, batch_size=batch_size, sampler=sampler, drop_last=True, num_workers=0)
+        self.valid_signature_dl = DataLoader(self.valid_signature_ds, batch_size=batch_size, shuffle=False, drop_last=True, num_workers=0)
+        self.valid_background_dl = DataLoader(self.valid_background_ds, batch_size=batch_size, shuffle=False, drop_last=True, num_workers=0)
+
+    def get_event_labels(self, dataset):
+        event_labels = []
+        for _, target in tqdm(dataset, desc="Processing Event Labels"):
+            event_contains_signature = (target == 2).any().item()
+            event_labels.append(1 if event_contains_signature else 0)
+        return event_labels
+
+    def split_validation_set(self):
+        signature_files = []
+        background_files = []
+        
+        for idx, (_, target) in enumerate(tqdm(self.valid_ds, desc="Splitting Validation Set")):
+            if (target == 2).any().item():
+                signature_files.append(self.valid_ds.filenames[idx])
+            else:
+                background_files.append(self.valid_ds.filenames[idx])
+
+        valid_signature_ds = ImageDataset(self.input_dir, self.target_dir, signature_files, transform=False, device=self.valid_ds.device)
+        valid_background_ds = ImageDataset(self.input_dir, self.target_dir, background_files, transform=False, device=self.valid_ds.device)
+
+        return valid_signature_ds, valid_background_ds
 
     def count_classes(self, num_classes):
         count = np.zeros(num_classes)
