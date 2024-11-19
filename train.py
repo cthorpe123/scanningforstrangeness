@@ -133,7 +133,7 @@ def train(config):
 
                 model.eval()
                 with torch.no_grad():
-                    random_val_batch = random.choice(data_loader.valid_dl)
+                    random_val_batch = random.choice(data_loader.valid_ds)
                     val_x, val_y = random_val_batch
                     val_x, val_y = val_x.to(device), val_y.to(device)
 
