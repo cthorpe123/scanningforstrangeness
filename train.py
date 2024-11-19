@@ -131,14 +131,14 @@ def train(config):
                 train_loss.append(loss.item())
                 tqdm.write(f"\033[34m--- Epoch {epoch+1}, Batch {i+1} - Training Loss: {loss.item()}\033[0m")
 
-                """
                 model.eval()
                 with torch.no_grad():
-                    random_index = random.randint(0, len(data_loader.valid_signature_dl) - 1)
-                    for i, batch in enumerate(data_loader.valid_signature_dl):
-                        if i == random_index:
-                            random_val_batch = batch
-                            break
+                    valid_iterator = iter(data_loader.valid_signature_dl)
+                    try:
+                        random_val_batch = next(valid_iterator) 
+                    except StopIteration:
+                        valid_iterator = iter(data_loader.valid_signature_dl)
+                        random_val_batch = next(valid_iterator)
 
                     val_x, val_y = random_val_batch
                     val_x, val_y = val_x.to(device), val_y.to(device)
@@ -148,7 +148,7 @@ def train(config):
 
                     valid_loss.append(val_loss.item())
                     tqdm.write(f"\033[34m--- Epoch {epoch+1}, Batch {i+1} - Validation Loss (Random Batch): {val_loss.item()}\033[0m")
-                """
+            
                 model.train()
 
             model_save_path = os.path.join(model_save_dir, f"{model_name}_epoch_{epoch+1}.pt")
