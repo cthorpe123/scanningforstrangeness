@@ -101,16 +101,19 @@ def train(config):
     scaler = torch.cuda.amp.GradScaler()
     #scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, mode='min', factor=0.1, patience=3)
 
+    train_losses = []
+    valid_losses = []
+
     output_path = os.path.join(output_dir, f"{model_name}_metrics.root")
     with uproot.recreate(output_path) as output:
         print("\033[34m-- Starting training loop\033[0m")
-        output["training"] = {
-            "train_loss": [],
-            "valid_loss": [],
-        }
+
+        train_loss = []
+        valid_loss = []
         for epoch in range(n_epochs):
             model.train()
             epoch_train_loss = []
+            epoch_valid_loss = []
             
             for i, batch in enumerate(tqdm(data_loader.train_dl, desc=f"Training Epoch {epoch+1}")):
                 x, y = batch
@@ -125,7 +128,7 @@ def train(config):
                 loss.backward()
                 optim.step()
 
-                output["training"]["train_loss"]  = loss.item()
+                train_loss.append(loss.item())
                 tqdm.write(f"\033[34m--- Epoch {epoch+1}, Batch {i+1} - Training Loss: {loss.item()}\033[0m")
 
                 model.eval()
@@ -137,7 +140,7 @@ def train(config):
                     val_pred = model(val_x)
                     val_loss = loss_fn(val_pred, val_y)
 
-                    output["training_loss"]["valid_loss"] = val_loss.item()
+                    valid_loss.append(val_loss.item())
                     tqdm.write(f"\033[34m--- Epoch {epoch+1}, Batch {i+1} - Validation Loss (Random Batch): {val_loss.item()}\033[0m")
 
                 model.train()
@@ -145,6 +148,11 @@ def train(config):
             model_save_path = os.path.join(model_save_dir, f"{model_name}_epoch_{epoch+1}.pt")
             torch.save(model.state_dict(), model_save_path)
             print(f"\033[32m-- Model saved at {model_save_path}\033[0m")
+
+        output["training"] = {
+            "train_loss": train_losses,
+            "valid_loss": valid_losses,
+        }
 
     print("\033[32m-- Training complete\033[0m")
 
