@@ -35,3 +35,4 @@ plots/
 __pycache__/
 *.png
 *.npy
+.ipynb_checkpoints/

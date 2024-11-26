@@ -86,6 +86,9 @@ class ImageDataset(Dataset):
         return len(self.filenames)
 
     def __getitem__(self, idx):
+        filename = self.filenames[idx]
+        run, subrun, event = map(int, filename.split('.')[0].split('_'))
+
         input_name = os.path.join(self.input_dir, self.filenames[idx])
         with open(input_name, 'rb') as file:
             input = np.load(file)['arr_0']
@@ -112,4 +115,4 @@ class ImageDataset(Dataset):
                 input = input.transpose(1, 2)
                 target = target.transpose(0, 1)
 
-        return input, target
+        return input, target, (run, subrun, event)

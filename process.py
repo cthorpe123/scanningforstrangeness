@@ -26,10 +26,12 @@ def create_histograms(x, z, q, flags, image_dim, x_bounds, z_bounds):
         x_idx = np.clip(np.digitize(x[i], x_bins) - 1, 0, x_pixels - 1)
         z_idx = np.clip(np.digitize(z[i], z_bins) - 1, 0, z_pixels - 1)
 
-        if flags[i][0] == 1:  
-            target_hist[z_idx, x_idx] = 2  
-        elif target_hist[z_idx, x_idx] == 0:
-            target_hist[z_idx, x_idx] = 1 
+        if flags[i][0] == 1:  # leptonic
+            target_hist[z_idx, x_idx] = 3
+        elif flags[i][1] == 1:  # hadronic
+            target_hist[z_idx, x_idx] = 2
+        else: 
+            target_hist[z_idx, x_idx] = 1
 
     return input_hist, target_hist
 
@@ -47,8 +49,7 @@ def parse_data(data):
 
         hit_data = data[14:]
 
-        n_flags = 1
-
+        n_flags = 2
         exp_len = n_hits * (3 + n_flags)
         act_len = len(hit_data)
 
