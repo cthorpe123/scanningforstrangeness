@@ -23,8 +23,9 @@ def visualise_input(input_histogram, height, width):
     return fig
 
 def visualise_truth(target_histogram, height, width):
-    cmap = ListedColormap(['#ffffff', '#0000ff', '#ff0000', '#00ff00'])
-    bounds = [-0.5, 0.5, 1.5, 2.5, 3.5]
+    # Colours are: white, blue, red, green 
+    cmap = ListedColormap(['#ffffff', '#0000ff', '#ff0000', '#00ff00','#ff00ff'])
+    bounds = [-0.5, 0.5, 1.5, 2.5, 3.5, 4.5]
     norm = BoundaryNorm(bounds, cmap.N)
     
     fig, ax = plt.subplots(figsize=(12, 12), dpi=300)
@@ -43,7 +44,9 @@ def visualise_truth(target_histogram, height, width):
 def visualise(config_file, n_events=1, sig_filter=False):
     config = ConfigLoader(config_file)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
+   
+    print("Making data loader")
+
     data_loader = ImageDataLoader(
         input_dir=config.input_dir,
         target_dir=config.target_dir,
@@ -53,6 +56,8 @@ def visualise(config_file, n_events=1, sig_filter=False):
         device=device
     )
 
+    print("Done making data loader")
+  
     height, width = config.height, config.width
     plot_dir = os.path.join(os.getcwd(), "plots")
     os.makedirs(plot_dir, exist_ok=True)

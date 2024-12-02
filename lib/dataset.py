@@ -27,7 +27,9 @@ class ImageDataLoader():
 
         self.valid_signature_ds, self.valid_background_ds = self.split_validation_set()
 
+        print("Getting event labels")
         event_labels = self.get_event_labels(self.train_ds)
+        print("Done getting event labels")
         signature_weight = 0.9
         background_weight = 0.1
         weights = [signature_weight if label == 1 else background_weight for label in event_labels]
@@ -40,7 +42,7 @@ class ImageDataLoader():
 
     def get_event_labels(self, dataset):
         event_labels = []
-        for _, target in tqdm(dataset, desc="Processing Event Labels"):
+        for _, target, _ in tqdm(dataset, desc="Processing Event Labels"):
             event_contains_signature = (target == 2).any().item()
             event_labels.append(1 if event_contains_signature else 0)
         return event_labels
@@ -49,7 +51,7 @@ class ImageDataLoader():
         signature_files = []
         background_files = []
         
-        for idx, (_, target) in enumerate(tqdm(self.valid_ds, desc="Splitting Validation Set")):
+        for idx, (_, target,_) in enumerate(tqdm(self.valid_ds, desc="Splitting Validation Set")):
             if (target == 2).any().item():
                 signature_files.append(self.valid_ds.filenames[idx])
             else:
@@ -63,7 +65,7 @@ class ImageDataLoader():
     def count_classes(self, num_classes):
         count = np.zeros(num_classes)
         for batch in tqdm(self.train_dl, desc="Counting Classes"):
-            _, truth = batch
+            _, truth, _ = batch
             unique = torch.unique(truth)
             counts = torch.stack([(truth == x_u).sum() for x_u in unique])
             unique = [u.item() for u in unique]

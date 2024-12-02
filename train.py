@@ -116,7 +116,7 @@ def train(config):
             epoch_valid_loss = []
             
             for i, batch in enumerate(tqdm(data_loader.train_dl, desc=f"Training Epoch {epoch+1}")):
-                x, y = batch
+                x, y, _ = batch
                 x, y = x.to(device), y.to(device)
 
                 y = y.to(torch.long)
@@ -140,7 +140,7 @@ def train(config):
                         valid_iterator = iter(data_loader.valid_signature_dl)
                         random_val_batch = next(valid_iterator)
 
-                    val_x, val_y = random_val_batch
+                    val_x, val_y, _ = random_val_batch
                     val_x, val_y = val_x.to(device), val_y.to(device)
 
                     val_pred = model(val_x)
