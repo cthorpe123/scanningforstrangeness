@@ -6,7 +6,7 @@ from tqdm import tqdm
 import torch.nn.functional as F
 
 class ImageDataLoader():
-    def __init__(self, input_dir, target_dir, batch_size, train_pct=None, valid_pct=0.1, test_pct=0.0, transform=False, device=torch.device('cuda:0')):
+    def __init__(self, input_dir, target_dir, batch_size, train_pct=None, valid_pct=0.1, test_pct=0.0, transform=False, device=torch.device('cuda:0'), n_files_override=-1):
         assert (valid_pct + test_pct) < 1.0
 
         self.input_dir = input_dir
@@ -15,6 +15,10 @@ class ImageDataLoader():
         input_files = np.array(next(os.walk(self.input_dir))[2])
 
         n_files = len(input_files)
+
+        if n_files_override != -1: 
+            n_files = n_files_override
+
         valid_size = int(n_files * valid_pct)
         train_size = n_files - valid_size if train_pct is None else int(n_files * train_pct)
 
@@ -27,9 +31,7 @@ class ImageDataLoader():
 
         self.valid_signature_ds, self.valid_background_ds = self.split_validation_set()
 
-        print("Getting event labels")
         event_labels = self.get_event_labels(self.train_ds)
-        print("Done getting event labels")
         signature_weight = 0.9
         background_weight = 0.1
         weights = [signature_weight if label == 1 else background_weight for label in event_labels]

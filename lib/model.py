@@ -102,6 +102,8 @@ class UNet(nn.Module):
         self.us_dropout_2 = dropout(drop_prob)
         self.us_dropout_1 = dropout(drop_prob)
 
+
+        print("Check",n_classes)
         self.output = nn.Conv2d(n_filters, n_classes, kernel_size=1)
 
     def forward(self, x):

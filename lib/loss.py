@@ -21,6 +21,7 @@ class FocalLoss(nn.Module):
         # Step 2: One-hot encode the targets
         num_classes = logits.size(1)
         targets_one_hot = F.one_hot(targets, num_classes=num_classes).permute(0, 3, 1, 2)
+
         print(f"[DEBUG] One-hot encoded targets:\n{targets_one_hot}")
 
         # Step 3: Extract probabilities for the target classes

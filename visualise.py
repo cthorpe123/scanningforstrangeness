@@ -53,7 +53,8 @@ def visualise(config_file, n_events=1, sig_filter=False):
         batch_size=1, 
         train_pct=config.train_pct,
         valid_pct=config.valid_pct,
-        device=device
+        device=device,
+        n_files_override=n_events     
     )
 
     print("Done making data loader")

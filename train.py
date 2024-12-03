@@ -85,7 +85,8 @@ def train(config):
         batch_size=batch_size,
         train_pct=train_pct,
         valid_pct=valid_pct,
-        device=device
+        device=device,
+        #n_files_override=config.n_events     
     )
 
     print("\033[34m-- Loading or calculating class weights\033[0m")

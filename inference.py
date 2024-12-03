@@ -1,3 +1,4 @@
+import sys
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -24,8 +25,8 @@ def visualise_input(input_histogram, height, width):
     return fig
 
 def visualise_truth(target_histogram, height, width):
-    cmap = ListedColormap(['#ffffff', '#0000ff', '#ff0000', '#00ff00'])
-    bounds = [-0.5, 0.5, 1.5, 2.5, 3.5]
+    cmap = ListedColormap(['#ffffff', '#0000ff', '#ff0000', '#00ff00','#ff00ff'])
+    bounds = [-0.5, 0.5, 1.5, 2.5, 3.5, 4.5]
     norm = BoundaryNorm(bounds, cmap.N)
     
     fig, ax = plt.subplots(figsize=(12, 12), dpi=300)
@@ -42,10 +43,11 @@ def visualise_truth(target_histogram, height, width):
     return fig
 
 def visualise_prediction(prediction_histogram, height, width):
+
     prediction_class = np.argmax(prediction_histogram, axis=0)
     
-    cmap = ListedColormap(['#ffffff', '#ff7f00', '#00ff00', '#0000ff'])
-    bounds = [-0.5, 0.5, 1.5, 2.5, 3.5]
+    cmap = ListedColormap(['#ffffff', '#0000ff', '#ff0000', '#00ff00','#ff00ff'])
+    bounds = [-0.5, 0.5, 1.5, 2.5, 3.5, 4.5]
     norm = BoundaryNorm(bounds, cmap.N)
     
     fig, ax = plt.subplots(figsize=(12, 12), dpi=300)
@@ -62,7 +64,9 @@ def visualise_prediction(prediction_histogram, height, width):
     return fig
 
 def load_model(model_path, device):
-    model = UNet(1, n_classes=3, depth=4, n_filters=16).to(device)
+    # CT: I think this is wrong
+    #model = UNet(1, n_classes=3, depth=4, n_filters=16).to(device)
+    model = UNet(1, n_classes=5, depth=4, n_filters=16).to(device)
     state_dict = torch.load(model_path, map_location=device)
     model.load_state_dict(state_dict)
     model.eval()  
@@ -78,7 +82,8 @@ def visualise(config_file, model_path, n_events=1, sig_filter=False):
         batch_size=1, 
         train_pct=config.train_pct,
         valid_pct=config.valid_pct,
-        device=device
+        device=device,
+        n_files_override=n_events     
     )
 
     model = load_model(model_path, device)
@@ -107,7 +112,7 @@ def visualise(config_file, model_path, n_events=1, sig_filter=False):
         input_img_tensor = torch.tensor(input_img).unsqueeze(0).unsqueeze(0).to(device) 
         with torch.no_grad():
             prediction = model(input_img_tensor).squeeze().cpu().numpy()  
-        
+
         identifier = f"run_{run}_subrun_{subrun}_event_{event}"
         
         input_fig = visualise_input(input_img, height, width)
