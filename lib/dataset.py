@@ -45,7 +45,7 @@ class ImageDataLoader():
     def get_event_labels(self, dataset):
         event_labels = []
         for _, target, _ in tqdm(dataset, desc="Processing Event Labels"):
-            event_contains_signature = (target == 2).any().item()
+            event_contains_signature = (target >= 2).any().item()
             event_labels.append(1 if event_contains_signature else 0)
         return event_labels
 
@@ -53,8 +53,8 @@ class ImageDataLoader():
         signature_files = []
         background_files = []
         
-        for idx, (_, target,_) in enumerate(tqdm(self.valid_ds, desc="Splitting Validation Set")):
-            if (target == 2).any().item():
+        for idx, (_, target, _) in enumerate(tqdm(self.valid_ds, desc="Splitting Validation Set")):
+            if (target >= 2).any().item():
                 signature_files.append(self.valid_ds.filenames[idx])
             else:
                 background_files.append(self.valid_ds.filenames[idx])

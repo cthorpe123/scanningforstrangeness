@@ -1,7 +1,11 @@
+import torch 
+
 import torch.nn as nn
 import time
 from line_profiler import profile
 from torch.cuda.amp import autocast, GradScaler
+
+import sys
 
 import os
 import torch
@@ -20,8 +24,8 @@ from lib.config import ConfigLoader
 
 from sklearn.metrics import precision_score, recall_score
 
-def create_model(n_classes, weights, device):
-    model = UNet(1, n_classes=n_classes, depth=4, n_filters=16)
+def create_model(n_classes, weights, device, kernel_size=3):
+    model = UNet(1, n_classes=n_classes, depth=4, n_filters=16, kernel_size=kernel_size)
     loss_fn = nn.CrossEntropyLoss(weight=torch.tensor(weights, dtype=torch.float32, device=device))
     #loss_fn = FocalLoss(alpha=torch.tensor(weights, dtype=torch.float32, device=device), gamma=3, reduction='mean')
     optim = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-5)
@@ -86,18 +90,22 @@ def train(config):
         train_pct=train_pct,
         valid_pct=valid_pct,
         device=device,
-        #n_files_override=config.n_events     
     )
 
     print("\033[34m-- Loading or calculating class weights\033[0m")
+
+    '''
     class_weights = load_class_weights()  
     if class_weights is None:  
         train_stats = data_loader.count_classes(n_classes)
         class_weights = get_class_weights(train_stats)
         save_class_weights(class_weights)
+    '''
 
+    train_stats = data_loader.count_classes(n_classes)
+    class_weights = get_class_weights(train_stats)
     print("\033[34m-- Initialising model, loss function, and optimiser\033[0m")
-    model, loss_fn, optim = create_model(n_classes, class_weights, device)
+    model, loss_fn, optim = create_model(n_classes, class_weights, device, kernel_size=config.kernel_size)
     model = model.to(device)
     scaler = torch.cuda.amp.GradScaler()
     #scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, mode='min', factor=0.1, patience=3)
@@ -117,6 +125,7 @@ def train(config):
             epoch_valid_loss = []
             
             for i, batch in enumerate(tqdm(data_loader.train_dl, desc=f"Training Epoch {epoch+1}")):
+
                 x, y, _ = batch
                 x, y = x.to(device), y.to(device)
 
@@ -124,6 +133,7 @@ def train(config):
                 optim.zero_grad()
 
                 pred = model(x)
+
                 loss = loss_fn(pred, y)
                         
                 loss.backward()

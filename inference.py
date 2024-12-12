@@ -25,8 +25,8 @@ def visualise_input(input_histogram, height, width):
     return fig
 
 def visualise_truth(target_histogram, height, width):
-    cmap = ListedColormap(['#ffffff', '#0000ff', '#ff0000', '#00ff00','#ff00ff'])
-    bounds = [-0.5, 0.5, 1.5, 2.5, 3.5, 4.5]
+    cmap = ListedColormap(['#ffffff','#000000', '#0000ff', '#ff0000', '#00ff00','#ff00ff'])
+    bounds = [-0.5, 0.5, 1.5, 2.5, 3.5, 4.5, 5.5]
     norm = BoundaryNorm(bounds, cmap.N)
     
     fig, ax = plt.subplots(figsize=(12, 12), dpi=300)
@@ -42,17 +42,29 @@ def visualise_truth(target_histogram, height, width):
     plt.tight_layout()
     return fig
 
+def visualise_prediction2(prediction_histogram,target_histogram, height, width, _class):
+      
+    classes = ["Empty","Background","KPlus","Lambda","Muon"] 
+
+    for x in range(0,255):
+        for y in range(0,255):
+            if(target_histogram[x][y] > 0): 
+                print("target",target_histogram[x][y])
+                #total = 0.
+                for i in range(0,5): print(classes[i],prediction_histogram[i][x][y]," ",end='')
+                print() 
+
 def visualise_prediction(prediction_histogram, height, width):
 
     prediction_class = np.argmax(prediction_histogram, axis=0)
-    
-    cmap = ListedColormap(['#ffffff', '#0000ff', '#ff0000', '#00ff00','#ff00ff'])
-    bounds = [-0.5, 0.5, 1.5, 2.5, 3.5, 4.5]
+    cmap = ListedColormap(['#ffffff','#000000', '#0000ff', '#ff0000', '#00ff00','#ff00ff'])
+    bounds = [-0.5, 0.5, 1.5, 2.5, 3.5, 4.5, 5.5]
     norm = BoundaryNorm(bounds, cmap.N)
     
     fig, ax = plt.subplots(figsize=(12, 12), dpi=300)
     masked_prediction_histogram = np.ma.masked_invalid(prediction_class)
     img = ax.imshow(masked_prediction_histogram, cmap=cmap, norm=norm, aspect='equal', interpolation='none')
+
     ax.set_xticks([0, width - 1])
     ax.set_yticks([0, height - 1])
     ax.tick_params(axis="both", direction="out", length=6, width=1.5, labelsize=18)
@@ -63,10 +75,9 @@ def visualise_prediction(prediction_histogram, height, width):
     plt.tight_layout()
     return fig
 
-def load_model(model_path, device):
+def load_model(model_path, device, n_classes, kernel_size=3):
     # CT: I think this is wrong
-    #model = UNet(1, n_classes=3, depth=4, n_filters=16).to(device)
-    model = UNet(1, n_classes=5, depth=4, n_filters=16).to(device)
+    model = UNet(1, n_classes=n_classes, depth=4, n_filters=16, kernel_size=kernel_size).to(device)
     state_dict = torch.load(model_path, map_location=device)
     model.load_state_dict(state_dict)
     model.eval()  
@@ -86,10 +97,14 @@ def visualise(config_file, model_path, n_events=1, sig_filter=False):
         n_files_override=n_events     
     )
 
-    model = load_model(model_path, device)
-    
+    model = load_model(model_path, device, config.n_classes, kernel_size=config.kernel_size)
+   
+    # Make separate subdirs for different models
+     
+
     height, width = config.height, config.width
-    plot_dir = os.path.join(os.getcwd(), "infer")
+    print("model",os.path.basename(os.path.normpath(model_path)))
+    plot_dir = os.path.join(os.getcwd(), "infer", config.model_name, os.path.basename(os.path.normpath(model_path)))
     os.makedirs(plot_dir, exist_ok=True)
 
     event_count = 0
@@ -129,6 +144,8 @@ def visualise(config_file, model_path, n_events=1, sig_filter=False):
         prediction_path = os.path.join(plot_dir, f"prediction_event_{identifier}.png")
         prediction_fig.savefig(prediction_path, dpi=300)
         plt.close(prediction_fig)
+
+        #visualise_prediction2(prediction,target_img, height, width,0)
 
         print(f"Saved input histogram to {input_path}")
         print(f"Saved target histogram to {target_path}")

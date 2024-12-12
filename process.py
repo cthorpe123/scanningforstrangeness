@@ -2,6 +2,7 @@ import os
 import csv
 import argparse
 import numpy as np
+import sys
 
 from lib.config import ConfigLoader
 
@@ -29,19 +30,21 @@ def create_histograms(x, z, q, flags, image_dim, x_bounds, z_bounds):
         # Set all hits to 1 as default
         target_hist[z_idx, x_idx] = 1
 
-        ##### CHANGE THIS #####
         '''
+        ##### CHANGE THIS #####
         if flags[i][0] == 1:  # leptonic
             target_hist[z_idx, x_idx] = 3
         elif flags[i][1] == 1:  # hadronic
             target_hist[z_idx, x_idx] = 2
         else: 
             target_hist[z_idx, x_idx] = 1
+
         '''
 
         for f in range(len(flags[i])):
             if(flags[i][f] == 1):
                 target_hist[z_idx, x_idx] = f + 2
+        
 
     return input_hist, target_hist
 
@@ -58,8 +61,6 @@ def parse_data(data):
         drift_min, drift_max, wire_min, wire_max = map(float, data[10:14])
 
         hit_data = data[14:]
-
-        print("n_flags",n_flags)
 
         #n_flags = 2
         exp_len = n_hits * (3 + n_flags)

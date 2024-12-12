@@ -17,8 +17,12 @@ def reinit_layer(layer, leak=0.0, use_kaiming_normal=True):
             layer.bias.data.zero_()
 
 class ConvBlock(nn.Module):
-    def __init__(self, c_in, c_out, k_size=3, k_pad=1):
+    #def __init__(self, c_in, c_out, k_size=3, k_pad=1):
+    #def __init__(self, c_in, c_out, k_size=5, k_pad=2):
+    def __init__(self, c_in, c_out, k_size=3):
         super(ConvBlock, self).__init__()
+        k_pad = int((k_size - 1)/2)
+        print("k_size",k_size,"k_pad",k_pad)
         self.conv1 = nn.Conv2d(c_in, c_out, kernel_size=k_size, padding=k_pad, stride=1)
         self.norm1 = nn.GroupNorm(8, c_out)
         self.relu = nn.ReLU(inplace=True)
@@ -38,8 +42,12 @@ class ConvBlock(nn.Module):
         return self.relu(x + identity)
 
 class TransposeConvBlock(nn.Module):
-    def __init__(self, c_in, c_out, k_size=3, k_pad=1):
+    #def __init__(self, c_in, c_out, k_size=3, k_pad=1):
+    #def __init__(self, c_in, c_out, k_size=5, k_pad=2):
+    def __init__(self, c_in, c_out, k_size=3):
         super(TransposeConvBlock, self).__init__()
+        k_pad = int((k_size - 1)/2)
+        print("k_size",k_size,"k_pad",k_pad)
         self.block = nn.Sequential(
             nn.ConvTranspose2d(c_in, c_out, kernel_size=k_size, padding=k_pad, output_padding=1, stride=2),
             nn.GroupNorm(8, c_out),
@@ -68,12 +76,12 @@ class Sigmoid(nn.Module):
             return torch.sigmoid(x)
 
 class UNet(nn.Module):
-    def __init__(self, in_dim, n_classes, depth=4, n_filters=16, drop_prob=0.1, y_range = None):
+    def __init__(self, in_dim, n_classes, depth=4, n_filters=16, drop_prob=0.1, y_range = None, kernel_size=3):
         super(UNet, self).__init__()
-        self.ds_conv_1 = ConvBlock(in_dim, n_filters)
-        self.ds_conv_2 = ConvBlock(n_filters, 2 * n_filters)
-        self.ds_conv_3 = ConvBlock(2 * n_filters, 4 * n_filters)
-        self.ds_conv_4 = ConvBlock(4 * n_filters, 8 * n_filters)
+        self.ds_conv_1 = ConvBlock(in_dim, n_filters, k_size=kernel_size)
+        self.ds_conv_2 = ConvBlock(n_filters, 2 * n_filters, k_size=kernel_size)
+        self.ds_conv_3 = ConvBlock(2 * n_filters, 4 * n_filters, k_size=kernel_size)
+        self.ds_conv_4 = ConvBlock(4 * n_filters, 8 * n_filters, k_size=kernel_size)
 
         self.ds_maxpool_1 = maxpool()
         self.ds_maxpool_2 = maxpool()
@@ -85,25 +93,23 @@ class UNet(nn.Module):
         self.ds_dropout_3 = dropout(drop_prob)
         self.ds_dropout_4 = dropout(drop_prob)
 
-        self.bridge = ConvBlock(8 * n_filters, 16 * n_filters)
+        self.bridge = ConvBlock(8 * n_filters, 16 * n_filters, k_size=kernel_size)
 
-        self.us_tconv_4 = TransposeConvBlock(16 * n_filters, 8 * n_filters)
-        self.us_tconv_3 = TransposeConvBlock(8 * n_filters, 4 * n_filters)
-        self.us_tconv_2 = TransposeConvBlock(4 * n_filters, 2 * n_filters)
-        self.us_tconv_1 = TransposeConvBlock(2 * n_filters, n_filters)
+        self.us_tconv_4 = TransposeConvBlock(16 * n_filters, 8 * n_filters, k_size=kernel_size)
+        self.us_tconv_3 = TransposeConvBlock(8 * n_filters, 4 * n_filters, k_size=kernel_size)
+        self.us_tconv_2 = TransposeConvBlock(4 * n_filters, 2 * n_filters, k_size=kernel_size)
+        self.us_tconv_1 = TransposeConvBlock(2 * n_filters, n_filters, k_size=kernel_size)
 
-        self.us_conv_4 = ConvBlock(16 * n_filters, 8 * n_filters)
-        self.us_conv_3 = ConvBlock(8 * n_filters, 4 * n_filters)
-        self.us_conv_2 = ConvBlock(4 * n_filters, 2 * n_filters)
-        self.us_conv_1 = ConvBlock(2 * n_filters, 1 * n_filters)
+        self.us_conv_4 = ConvBlock(16 * n_filters, 8 * n_filters, k_size=kernel_size)
+        self.us_conv_3 = ConvBlock(8 * n_filters, 4 * n_filters, k_size=kernel_size)
+        self.us_conv_2 = ConvBlock(4 * n_filters, 2 * n_filters, k_size=kernel_size)
+        self.us_conv_1 = ConvBlock(2 * n_filters, 1 * n_filters, k_size=kernel_size)
 
         self.us_dropout_4 = dropout(drop_prob)
         self.us_dropout_3 = dropout(drop_prob)
         self.us_dropout_2 = dropout(drop_prob)
         self.us_dropout_1 = dropout(drop_prob)
 
-
-        print("Check",n_classes)
         self.output = nn.Conv2d(n_filters, n_classes, kernel_size=1)
 
     def forward(self, x):

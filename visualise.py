@@ -23,9 +23,9 @@ def visualise_input(input_histogram, height, width):
     return fig
 
 def visualise_truth(target_histogram, height, width):
-    # Colours are: white, blue, red, green 
-    cmap = ListedColormap(['#ffffff', '#0000ff', '#ff0000', '#00ff00','#ff00ff'])
-    bounds = [-0.5, 0.5, 1.5, 2.5, 3.5, 4.5]
+    # Colours are: white, black, blue, red, green, magenta 
+    cmap = ListedColormap(['#ffffff','#000000', '#0000ff', '#ff0000', '#00ff00','#ff00ff'])
+    bounds = [-0.5, 0.5, 1.5, 2.5, 3.5, 4.5, 5.5]
     norm = BoundaryNorm(bounds, cmap.N)
     
     fig, ax = plt.subplots(figsize=(12, 12), dpi=300)
