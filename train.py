@@ -17,15 +17,26 @@ from tqdm import tqdm
 import random
 
 from lib.dataset import ImageDataLoader
-from lib.model import UNet
+from lib.model import UNet_4layer
+from lib.model_5layer import UNet_5layer
+from lib.model_6layer import UNet_6layer
+from lib.model_7layer import UNet_7layer
+from lib.model_8layer import UNet_8layer
 from lib.loss import FocalLoss
 from lib.common import set_seed
 from lib.config import ConfigLoader
 
 from sklearn.metrics import precision_score, recall_score
 
-def create_model(n_classes, weights, device, kernel_size=3):
-    model = UNet(1, n_classes=n_classes, depth=4, n_filters=16, kernel_size=kernel_size)
+def create_model(n_classes, n_layers, weights, device, kernel_size=3):
+
+    if n_layers == 4: model = UNet_4layer(1, n_classes=n_classes, depth=4, n_filters=16, kernel_size=kernel_size)
+    elif n_layers == 5: model = UNet_5layer(1, n_classes=n_classes, depth=5, n_filters=16, kernel_size=kernel_size)
+    elif n_layers == 6: model = UNet_6layer(1, n_classes=n_classes, depth=6, n_filters=16, kernel_size=kernel_size)
+    elif n_layers == 7: model = UNet_7layer(1, n_classes=n_classes, depth=7, n_filters=16, kernel_size=kernel_size)
+    elif n_layers == 8: model = UNet_8layer(1, n_classes=n_classes, depth=8, n_filters=16, kernel_size=kernel_size)
+    else: raise ValueError('Network depths of 4, 5, 6 and 7 supported') 
+
     loss_fn = nn.CrossEntropyLoss(weight=torch.tensor(weights, dtype=torch.float32, device=device))
     #loss_fn = FocalLoss(alpha=torch.tensor(weights, dtype=torch.float32, device=device), gamma=3, reduction='mean')
     optim = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-5)
@@ -105,7 +116,7 @@ def train(config):
     train_stats = data_loader.count_classes(n_classes)
     class_weights = get_class_weights(train_stats)
     print("\033[34m-- Initialising model, loss function, and optimiser\033[0m")
-    model, loss_fn, optim = create_model(n_classes, class_weights, device, kernel_size=config.kernel_size)
+    model, loss_fn, optim = create_model(n_classes, config.n_layers, class_weights, device, kernel_size=config.kernel_size)
     model = model.to(device)
     scaler = torch.cuda.amp.GradScaler()
     #scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, mode='min', factor=0.1, patience=3)

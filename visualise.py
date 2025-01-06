@@ -83,12 +83,12 @@ def visualise(config_file, n_events=1, sig_filter=False):
         identifier = f"run_{run}_subrun_{subrun}_event_{event}"
         
         input_fig = visualise_input(input_img, height, width)
-        input_path = os.path.join(plot_dir, f"input_event_{identifier}.png")
+        input_path = os.path.join(plot_dir, f"event_{identifier}_input.png")
         input_fig.savefig(input_path, dpi=300)
         plt.close(input_fig)
 
         target_fig = visualise_truth(target_img, height, width)
-        target_path = os.path.join(plot_dir, f"target_event_{identifier}.png")
+        target_path = os.path.join(plot_dir, f"event_{identifier}_target.png")
         target_fig.savefig(target_path, dpi=300)
         plt.close(target_fig)
 

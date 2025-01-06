@@ -9,7 +9,10 @@ from matplotlib.colors import ListedColormap, BoundaryNorm
 
 from lib.dataset import ImageDataLoader
 from lib.config import ConfigLoader
-from lib.model import UNet
+from lib.model import UNet_4layer
+from lib.model_5layer import UNet_5layer
+from lib.model_6layer import UNet_6layer
+from lib.model_7layer import UNet_7layer
 
 def visualise_input(input_histogram, height, width):
     fig, ax = plt.subplots(figsize=(12, 12), dpi=300)
@@ -75,9 +78,16 @@ def visualise_prediction(prediction_histogram, height, width):
     plt.tight_layout()
     return fig
 
-def load_model(model_path, device, n_classes, kernel_size=3):
+def load_model(model_path, device, n_classes, n_layers=4, kernel_size=3):
     # CT: I think this is wrong
-    model = UNet(1, n_classes=n_classes, depth=4, n_filters=16, kernel_size=kernel_size).to(device)
+    #model = UNet(1, n_classes=n_classes, depth=4, n_filters=16, kernel_size=kernel_size).to(device)
+
+    if n_layers == 4: model = UNet_4layer(1, n_classes=n_classes, depth=4, n_filters=16, kernel_size=kernel_size)
+    elif n_layers == 5: model = UNet_5layer(1, n_classes=n_classes, depth=5, n_filters=16, kernel_size=kernel_size)
+    elif n_layers == 6: model = UNet_6layer(1, n_classes=n_classes, depth=6, n_filters=16, kernel_size=kernel_size)
+    elif n_layers == 7: model = UNet_7layer(1, n_classes=n_classes, depth=7, n_filters=16, kernel_size=kernel_size)
+    else: raise ValueError('Network depths of 4, 5, 6 and 7 supported') 
+
     state_dict = torch.load(model_path, map_location=device)
     model.load_state_dict(state_dict)
     model.eval()  
@@ -85,7 +95,8 @@ def load_model(model_path, device, n_classes, kernel_size=3):
 
 def visualise(config_file, model_path, n_events=1, sig_filter=False):
     config = ConfigLoader(config_file)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cpu")
     
     data_loader = ImageDataLoader(
         input_dir=config.input_dir,
@@ -97,10 +108,9 @@ def visualise(config_file, model_path, n_events=1, sig_filter=False):
         n_files_override=n_events     
     )
 
-    model = load_model(model_path, device, config.n_classes, kernel_size=config.kernel_size)
+    model = load_model(model_path, device, config.n_classes, config.n_layers, kernel_size=config.kernel_size)
    
     # Make separate subdirs for different models
-     
 
     height, width = config.height, config.width
     print("model",os.path.basename(os.path.normpath(model_path)))
@@ -131,17 +141,17 @@ def visualise(config_file, model_path, n_events=1, sig_filter=False):
         identifier = f"run_{run}_subrun_{subrun}_event_{event}"
         
         input_fig = visualise_input(input_img, height, width)
-        input_path = os.path.join(plot_dir, f"input_event_{identifier}.png")
+        input_path = os.path.join(plot_dir, f"event_{identifier}_input.png")
         input_fig.savefig(input_path, dpi=300)
         plt.close(input_fig)
 
         target_fig = visualise_truth(target_img, height, width)
-        target_path = os.path.join(plot_dir, f"target_event_{identifier}.png")
+        target_path = os.path.join(plot_dir, f"event_{identifier}_target.png")
         target_fig.savefig(target_path, dpi=300)
         plt.close(target_fig)
 
         prediction_fig = visualise_prediction(prediction, height, width)
-        prediction_path = os.path.join(plot_dir, f"prediction_event_{identifier}.png")
+        prediction_path = os.path.join(plot_dir, f"event_{identifier}_prediction.png")
         prediction_fig.savefig(prediction_path, dpi=300)
         plt.close(prediction_fig)
 

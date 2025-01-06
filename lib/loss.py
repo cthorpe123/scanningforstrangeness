@@ -47,6 +47,7 @@ class FocalLoss(nn.Module):
 
 
         # Step 6: Apply alpha (class weights)
+
         if isinstance(self.alpha, torch.Tensor):
             alpha = self.alpha.view(1, -1, 1, 1)  # Reshape for broadcasting
             alpha = torch.gather(self.alpha, 0, targets.unsqueeze(-1).to(dtype=torch.long)).squeeze(-1)  # Extract alpha for target classes
