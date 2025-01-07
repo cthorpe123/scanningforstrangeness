@@ -88,6 +88,8 @@ def load_model(model_path, device, n_classes, n_layers=4, kernel_size=3):
     elif n_layers == 7: model = UNet_7layer(1, n_classes=n_classes, depth=7, n_filters=16, kernel_size=kernel_size)
     else: raise ValueError('Network depths of 4, 5, 6 and 7 supported') 
 
+    model= torch.nn.DataParallel(model)
+
     state_dict = torch.load(model_path, map_location=device)
     model.load_state_dict(state_dict)
     model.eval()  

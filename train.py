@@ -40,6 +40,11 @@ def create_model(n_classes, n_layers, weights, device, kernel_size=3):
     loss_fn = nn.CrossEntropyLoss(weight=torch.tensor(weights, dtype=torch.float32, device=device))
     #loss_fn = FocalLoss(alpha=torch.tensor(weights, dtype=torch.float32, device=device), gamma=3, reduction='mean')
     optim = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-5)
+
+    # Try splitting the data accross several gpus
+    print("Currently available devices:",torch.cuda.device_count())
+    model= nn.DataParallel(model)
+
     return model, loss_fn, optim
 
 def get_class_weights(stats):
